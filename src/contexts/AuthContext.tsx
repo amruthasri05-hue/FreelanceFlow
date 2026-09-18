@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Profile, UserRole } from '../types';
 import { db } from '../lib/supabase/db';
-import { supabase, isSupabaseConfigured } from '../lib/supabase/client';
+import { supabase, isSupabaseConfigured, getAuthRedirectUrl } from '../lib/supabase/client';
 
 interface AuthContextType {
   user: Profile | null;
@@ -11,6 +11,8 @@ interface AuthContextType {
   login: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
   signup: (data: { email: string; password?: string; fullName: string; role: UserRole; companyName?: string }) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
+  updatePassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
   switchRoleDemo: (role: UserRole) => Promise<void>;
   updateUserProfile: (updates: Partial<Profile>) => Promise<void>;
   isSupabaseLive: boolean;
@@ -23,7 +25,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const isSupabaseLive = isSupabaseConfigured();
 
-  // Initialize session on mount
+  // Initialize session on mount and listen to auth state changes
   useEffect(() => {
     async function initSession() {
       try {
@@ -50,7 +52,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
 
-        // Default to demo freelancer user for instant usability
+        // Default to demo freelancer user for instant usability in demo mode
         const defaultProfile = await db.getProfileById('usr-freelancer-1');
         setUser(defaultProfile);
         if (defaultProfile) {
@@ -64,6 +66,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     initSession();
+
+    // Listen for auth state changes (including PASSWORD_RECOVERY and SIGNED_IN)
+    if (isSupabaseLive && supabase) {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'PASSWORD_RECOVERY') {
+          // Redirect the user to the reset password view if not already there
+          if (typeof window !== 'undefined' && window.location.pathname !== '/reset-password') {
+            window.history.pushState({}, '', '/reset-password');
+            window.dispatchEvent(new PopStateEvent('popstate'));
+          }
+        } else if (session?.user) {
+          const profile = await db.getProfileById(session.user.id);
+          if (profile) {
+            setUser(profile);
+            localStorage.setItem('freelanceflow_active_user_id', profile.id);
+          }
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+          localStorage.removeItem('freelanceflow_active_user_id');
+        }
+      });
+
+      return () => {
+        subscription.unsubscribe();
+      };
+    }
   }, [isSupabaseLive]);
 
   const login = async (email: string, password?: string): Promise<{ success: boolean; error?: string }> => {
@@ -174,6 +202,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   };
 
+  const resetPassword = async (email: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      if (isSupabaseLive && supabase) {
+        const redirectTo = getAuthRedirectUrl('/reset-password');
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo,
+        });
+        if (error) {
+          return { success: false, error: error.message };
+        }
+        return { success: true };
+      }
+
+      // Demo mode simulated response
+      return { success: true };
+    } catch (err: unknown) {
+      return { success: false, error: err instanceof Error ? err.message : 'Failed to send reset link' };
+    }
+  };
+
+  const updatePassword = async (newPassword: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      if (isSupabaseLive && supabase) {
+        const { error } = await supabase.auth.updateUser({
+          password: newPassword,
+        });
+        if (error) {
+          return { success: false, error: error.message };
+        }
+        return { success: true };
+      }
+
+      // Demo mode simulated success
+      return { success: true };
+    } catch (err: unknown) {
+      return { success: false, error: err instanceof Error ? err.message : 'Failed to update password' };
+    }
+  };
+
   const switchRoleDemo = async (targetRole: UserRole): Promise<void> => {
     const profiles = await db.getProfiles();
     let target = profiles.find(p => p.role === targetRole);
@@ -200,6 +267,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         signup,
         logout,
+        resetPassword,
+        updatePassword,
         switchRoleDemo,
         updateUserProfile,
         isSupabaseLive,
