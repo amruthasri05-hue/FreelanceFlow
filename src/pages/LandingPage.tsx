@@ -10,7 +10,7 @@ import { Button } from '../components/ui/Button';
 
 export const LandingPage: React.FC = () => {
   const { navigate } = useRouter();
-  const { user } = useAuth();
+  const { user, isSupabaseLive } = useAuth();
 
   const handleLaunch = () => {
     if (user) {
@@ -105,7 +105,7 @@ export const LandingPage: React.FC = () => {
               }}
               className="w-full sm:w-auto text-sm font-medium px-5 py-3 rounded-lg bg-slate-800 text-slate-200 hover:bg-slate-700 hover:text-white border border-slate-700 transition-colors cursor-pointer"
             >
-              Explore 1-Click Demo Accounts
+              {isSupabaseLive ? 'Sign In to Workspace' : 'Explore 1-Click Demo Accounts'}
             </button>
           </div>
 

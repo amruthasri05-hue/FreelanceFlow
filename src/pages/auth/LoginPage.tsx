@@ -7,7 +7,7 @@ import { Sparkles, ArrowRight, ShieldCheck, UserCheck, AlertCircle, CheckCircle2
 
 export const LoginPage: React.FC = () => {
   const { navigate } = useRouter();
-  const { login } = useAuth();
+  const { login, isSupabaseLive } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -128,49 +128,51 @@ export const LoginPage: React.FC = () => {
             </Button>
           </form>
 
-          {/* 1-Click Role Quick Logins for Instant Demonstration */}
-          <div className="mt-6 pt-6 border-t border-slate-800">
-            <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 text-center mb-3">
-              1-Click Demo Accounts
-            </p>
-            <div className="space-y-2">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('sarah.jenkins@freelanceflow.dev', '/dashboard')}
-                className="w-full py-2 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-left flex items-center justify-between text-xs text-slate-300 hover:text-white transition-colors cursor-pointer"
-              >
-                <div>
-                  <span className="font-semibold text-indigo-400">Freelancer</span>
-                  <span className="text-slate-400 ml-2">Sarah Jenkins</span>
-                </div>
-                <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
-              </button>
+          {/* 1-Click Role Quick Logins for Instant Demonstration (fallback when live Supabase is not configured) */}
+          {!isSupabaseLive && (
+            <div className="mt-6 pt-6 border-t border-slate-800">
+              <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-400 text-center mb-3">
+                1-Click Demo Accounts
+              </p>
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('sarah.jenkins@freelanceflow.dev', '/dashboard')}
+                  className="w-full py-2 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-left flex items-center justify-between text-xs text-slate-300 hover:text-white transition-colors cursor-pointer"
+                >
+                  <div>
+                    <span className="font-semibold text-indigo-400">Freelancer</span>
+                    <span className="text-slate-400 ml-2">Sarah Jenkins</span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
+                </button>
 
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('marcus@novalabs.ai', '/client/dashboard')}
-                className="w-full py-2 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-left flex items-center justify-between text-xs text-slate-300 hover:text-white transition-colors cursor-pointer"
-              >
-                <div>
-                  <span className="font-semibold text-emerald-400">Client</span>
-                  <span className="text-slate-400 ml-2">Marcus Vance (Nova Labs)</span>
-                </div>
-                <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
-              </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('marcus@novalabs.ai', '/client/dashboard')}
+                  className="w-full py-2 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-left flex items-center justify-between text-xs text-slate-300 hover:text-white transition-colors cursor-pointer"
+                >
+                  <div>
+                    <span className="font-semibold text-emerald-400">Client</span>
+                    <span className="text-slate-400 ml-2">Marcus Vance (Nova Labs)</span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
+                </button>
 
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('elena.rostova@freelanceflow.dev', '/admin')}
-                className="w-full py-2 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-left flex items-center justify-between text-xs text-slate-300 hover:text-white transition-colors cursor-pointer"
-              >
-                <div>
-                  <span className="font-semibold text-amber-400">Admin</span>
-                  <span className="text-slate-400 ml-2">Elena Rostova</span>
-                </div>
-                <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
-              </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('elena.rostova@freelanceflow.dev', '/admin')}
+                  className="w-full py-2 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-left flex items-center justify-between text-xs text-slate-300 hover:text-white transition-colors cursor-pointer"
+                >
+                  <div>
+                    <span className="font-semibold text-amber-400">Admin</span>
+                    <span className="text-slate-400 ml-2">Elena Rostova</span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="mt-6 text-center text-xs text-slate-400">
             Don't have an account?{' '}
