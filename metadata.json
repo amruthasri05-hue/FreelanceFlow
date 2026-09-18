@@ -1,0 +1,6 @@
+{
+  "name": "FreelanceFlow",
+  "description": "One workspace. Every freelance project. Centralized freelance project management platform for clients, projects, tasks, time tracking, invoicing, and real-time client collaboration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

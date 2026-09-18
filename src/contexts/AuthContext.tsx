@@ -1,0 +1,219 @@
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Profile, UserRole } from '../types';
+import { db } from '../lib/supabase/db';
+import { supabase, isSupabaseConfigured } from '../lib/supabase/client';
+
+interface AuthContextType {
+  user: Profile | null;
+  role: UserRole | null;
+  loading: boolean;
+  isAuthenticated: boolean;
+  login: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
+  signup: (data: { email: string; password?: string; fullName: string; role: UserRole; companyName?: string }) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
+  switchRoleDemo: (role: UserRole) => Promise<void>;
+  updateUserProfile: (updates: Partial<Profile>) => Promise<void>;
+  isSupabaseLive: boolean;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const isSupabaseLive = isSupabaseConfigured();
+
+  // Initialize session on mount
+  useEffect(() => {
+    async function initSession() {
+      try {
+        if (isSupabaseLive && supabase) {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            const profile = await db.getProfileById(session.user.id);
+            if (profile) {
+              setUser(profile);
+              setLoading(false);
+              return;
+            }
+          }
+        }
+
+        // Restore local simulated session if present
+        const savedUserId = localStorage.getItem('freelanceflow_active_user_id');
+        if (savedUserId) {
+          const profile = await db.getProfileById(savedUserId);
+          if (profile) {
+            setUser(profile);
+            setLoading(false);
+            return;
+          }
+        }
+
+        // Default to demo freelancer user for instant usability
+        const defaultProfile = await db.getProfileById('usr-freelancer-1');
+        setUser(defaultProfile);
+        if (defaultProfile) {
+          localStorage.setItem('freelanceflow_active_user_id', defaultProfile.id);
+        }
+      } catch (err) {
+        console.warn('Auth session initialization error:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    initSession();
+  }, [isSupabaseLive]);
+
+  const login = async (email: string, password?: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      if (isSupabaseLive && supabase && password) {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) return { success: false, error: error.message };
+        if (data.user) {
+          const profile = await db.getProfileById(data.user.id);
+          if (profile) {
+            setUser(profile);
+            localStorage.setItem('freelanceflow_active_user_id', profile.id);
+            return { success: true };
+          }
+        }
+      }
+
+      // Match demo profiles
+      const profiles = await db.getProfiles();
+      const matched = profiles.find(p => p.email.toLowerCase() === email.toLowerCase());
+      if (matched) {
+        setUser(matched);
+        localStorage.setItem('freelanceflow_active_user_id', matched.id);
+        return { success: true };
+      }
+
+      // If not matched, create new freelancer profile session
+      const newProfile: Profile = {
+        id: 'usr-' + Date.now(),
+        email,
+        full_name: email.split('@')[0],
+        role: 'freelancer',
+        company_name: 'Freelance Studio',
+        hourly_rate: 100,
+        currency: 'USD',
+        created_at: new Date().toISOString(),
+      };
+      const created = await db.updateProfile(newProfile.id, newProfile).catch(() => newProfile);
+      setUser(created);
+      localStorage.setItem('freelanceflow_active_user_id', created.id);
+      return { success: true };
+    } catch (err: unknown) {
+      return { success: false, error: err instanceof Error ? err.message : 'Login failed' };
+    }
+  };
+
+  const signup = async (data: {
+    email: string;
+    password?: string;
+    fullName: string;
+    role: UserRole;
+    companyName?: string;
+  }): Promise<{ success: boolean; error?: string }> => {
+    try {
+      if (isSupabaseLive && supabase && data.password) {
+        const { data: authData, error } = await supabase.auth.signUp({
+          email: data.email,
+          password: data.password,
+          options: {
+            data: {
+              full_name: data.fullName,
+              role: data.role,
+              company_name: data.companyName,
+            }
+          }
+        });
+        if (error) return { success: false, error: error.message };
+        if (authData.user) {
+          const newProfile: Profile = {
+            id: authData.user.id,
+            email: data.email,
+            full_name: data.fullName,
+            role: data.role,
+            company_name: data.companyName,
+            currency: 'USD',
+            created_at: new Date().toISOString(),
+          };
+          await db.updateProfile(newProfile.id, newProfile);
+          setUser(newProfile);
+          localStorage.setItem('freelanceflow_active_user_id', newProfile.id);
+          return { success: true };
+        }
+      }
+
+      const newProfile: Profile = {
+        id: 'usr-' + Date.now(),
+        email: data.email,
+        full_name: data.fullName,
+        role: data.role,
+        company_name: data.companyName,
+        currency: 'USD',
+        created_at: new Date().toISOString(),
+      };
+      db.profiles.push(newProfile);
+      setUser(newProfile);
+      localStorage.setItem('freelanceflow_active_user_id', newProfile.id);
+      return { success: true };
+    } catch (err: unknown) {
+      return { success: false, error: err instanceof Error ? err.message : 'Sign up failed' };
+    }
+  };
+
+  const logout = async (): Promise<void> => {
+    if (isSupabaseLive && supabase) {
+      await supabase.auth.signOut();
+    }
+    localStorage.removeItem('freelanceflow_active_user_id');
+    setUser(null);
+  };
+
+  const switchRoleDemo = async (targetRole: UserRole): Promise<void> => {
+    const profiles = await db.getProfiles();
+    let target = profiles.find(p => p.role === targetRole);
+    if (!target) {
+      target = profiles[0];
+    }
+    setUser(target);
+    localStorage.setItem('freelanceflow_active_user_id', target.id);
+  };
+
+  const updateUserProfile = async (updates: Partial<Profile>): Promise<void> => {
+    if (!user) return;
+    const updated = await db.updateProfile(user.id, updates);
+    setUser(updated);
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        role: user?.role || null,
+        loading,
+        isAuthenticated: !!user,
+        login,
+        signup,
+        logout,
+        switchRoleDemo,
+        updateUserProfile,
+        isSupabaseLive,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = (): AuthContextType => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
