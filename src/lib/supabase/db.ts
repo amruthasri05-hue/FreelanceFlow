@@ -102,19 +102,14 @@ class AppDatabase {
 
   async createClient(client: Omit<Client, 'id' | 'created_at' | 'is_archived'>): Promise<Client> {
     if (isSupabaseConfigured() && supabase) {
-      let freelancerId = client.freelancer_id;
       const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user?.id) {
-        freelancerId = session.user.id;
-      } else {
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        if (authUser?.id) {
-          freelancerId = authUser.id;
-        }
+      const authUserId = session?.user?.id;
+      if (!authUserId) {
+        throw new Error('Authentication required: an active Supabase session is required to create a client.');
       }
 
       const insertPayload = {
-        freelancer_id: freelancerId,
+        freelancer_id: authUserId,
         name: client.name,
         company: client.company || null,
         email: client.email,
@@ -130,7 +125,7 @@ class AppDatabase {
         throw error;
       }
       if (data) {
-        await this.logActivity(freelancerId, undefined, 'created', 'client', data.id, { name: data.name });
+        await this.logActivity(authUserId, undefined, 'created', 'client', data.id, { name: data.name });
         return data as Client;
       }
     }
@@ -202,19 +197,14 @@ class AppDatabase {
 
   async createProject(project: Omit<Project, 'id' | 'created_at' | 'is_archived'>): Promise<Project> {
     if (isSupabaseConfigured() && supabase) {
-      let freelancerId = project.freelancer_id;
       const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user?.id) {
-        freelancerId = session.user.id;
-      } else {
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        if (authUser?.id) {
-          freelancerId = authUser.id;
-        }
+      const authUserId = session?.user?.id;
+      if (!authUserId) {
+        throw new Error('Authentication required: an active Supabase session is required to create a project.');
       }
 
       const insertPayload = {
-        freelancer_id: freelancerId,
+        freelancer_id: authUserId,
         client_id: project.client_id && project.client_id.trim() !== '' ? project.client_id : null,
         name: project.name,
         description: project.description || null,
@@ -232,7 +222,7 @@ class AppDatabase {
         throw error;
       }
       if (data) {
-        await this.logActivity(freelancerId, data.id, 'created', 'project', data.id, { name: data.name });
+        await this.logActivity(authUserId, data.id, 'created', 'project', data.id, { name: data.name });
         return data as Project;
       }
     }

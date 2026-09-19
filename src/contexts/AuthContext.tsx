@@ -204,6 +204,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         if (error) return { success: false, error: error.message };
         if (authData.user) {
+          // If session was not automatically created by signUp (e.g. project configuration), establish it
+          if (!authData.session && data.password) {
+            await supabase.auth.signInWithPassword({
+              email: data.email,
+              password: data.password,
+            });
+          }
+
           const newProfile: Profile = {
             id: authData.user.id,
             email: data.email,
@@ -287,6 +295,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const switchRoleDemo = async (targetRole: UserRole): Promise<void> => {
+    if (isSupabaseLive) {
+      // In live Supabase mode, the active user is strictly tied to the Supabase Auth session.
+      return;
+    }
     const profiles = await db.getProfiles();
     let target = profiles.find(p => p.role === targetRole);
     if (!target) {

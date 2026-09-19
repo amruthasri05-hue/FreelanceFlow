@@ -165,33 +165,35 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({ mobileOpen, onCloseMobil
           })}
         </nav>
 
-        {/* Quick Role Switcher for seamless demonstration & reviewer testing */}
-        <div className="px-4 py-2 border-t border-slate-800/80 bg-slate-900/90">
-          <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-            <span>Test Role View</span>
-            <span className="text-indigo-400 font-bold capitalize">{role}</span>
+        {/* Quick Role Switcher for seamless demonstration & reviewer testing (demo mode only) */}
+        {!isSupabaseLive && (
+          <div className="px-4 py-2 border-t border-slate-800/80 bg-slate-900/90">
+            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+              <span>Test Role View</span>
+              <span className="text-indigo-400 font-bold capitalize">{role}</span>
+            </div>
+            <div className="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-[11px]">
+              <button
+                onClick={() => { switchRoleDemo('freelancer'); handleNav('/dashboard'); }}
+                className={`py-1 rounded font-medium cursor-pointer transition-colors ${role === 'freelancer' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+              >
+                Freelancer
+              </button>
+              <button
+                onClick={() => { switchRoleDemo('client'); handleNav('/client/dashboard'); }}
+                className={`py-1 rounded font-medium cursor-pointer transition-colors ${role === 'client' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+              >
+                Client
+              </button>
+              <button
+                onClick={() => { switchRoleDemo('admin'); handleNav('/admin'); }}
+                className={`py-1 rounded font-medium cursor-pointer transition-colors ${role === 'admin' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+              >
+                Admin
+              </button>
+            </div>
           </div>
-          <div className="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-[11px]">
-            <button
-              onClick={() => { switchRoleDemo('freelancer'); handleNav('/dashboard'); }}
-              className={`py-1 rounded font-medium cursor-pointer transition-colors ${role === 'freelancer' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
-            >
-              Freelancer
-            </button>
-            <button
-              onClick={() => { switchRoleDemo('client'); handleNav('/client/dashboard'); }}
-              className={`py-1 rounded font-medium cursor-pointer transition-colors ${role === 'client' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
-            >
-              Client
-            </button>
-            <button
-              onClick={() => { switchRoleDemo('admin'); handleNav('/admin'); }}
-              className={`py-1 rounded font-medium cursor-pointer transition-colors ${role === 'admin' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
-            >
-              Admin
-            </button>
-          </div>
-        </div>
+        )}
 
         {/* User Profile Footer */}
         <div className="p-3 border-t border-slate-800 bg-slate-950/70 flex items-center justify-between">
