@@ -101,6 +101,26 @@ class AppDatabase {
   }
 
   async createClient(client: Omit<Client, 'id' | 'created_at' | 'is_archived'>): Promise<Client> {
+    if (isSupabaseConfigured() && supabase) {
+      const insertPayload = {
+        freelancer_id: client.freelancer_id,
+        name: client.name,
+        company: client.company || null,
+        email: client.email,
+        phone: client.phone || null,
+        website: client.website || null,
+        address: client.address || null,
+        notes: client.notes || null,
+        is_archived: false,
+      };
+      const { data, error } = await supabase.from('clients').insert(insertPayload).select().single();
+      if (error) {
+        console.error('Error creating client in Supabase:', error);
+      } else if (data) {
+        await this.logActivity(client.freelancer_id, undefined, 'created', 'client', data.id, { name: data.name });
+        return data as Client;
+      }
+    }
     const newClient: Client = {
       ...client,
       id: 'cli-' + Date.now(),
@@ -109,10 +129,6 @@ class AppDatabase {
       active_projects_count: 0,
       total_billed: 0,
     };
-    if (isSupabaseConfigured() && supabase) {
-      const { data, error } = await supabase.from('clients').insert(newClient).select().single();
-      if (!error && data) return data as Client;
-    }
     this.clients.unshift(newClient);
     this.persist('clients', this.clients);
     await this.logActivity(client.freelancer_id, undefined, 'created', 'client', newClient.id, { name: newClient.name });
@@ -121,7 +137,8 @@ class AppDatabase {
 
   async updateClient(id: string, updates: Partial<Client>): Promise<Client> {
     if (isSupabaseConfigured() && supabase) {
-      const { data, error } = await supabase.from('clients').update(updates).eq('id', id).select().single();
+      const { active_projects_count, total_billed, id: _id, created_at: _cat, ...cleanUpdates } = updates;
+      const { data, error } = await supabase.from('clients').update(cleanUpdates).eq('id', id).select().single();
       if (!error && data) return data as Client;
     }
     const idx = this.clients.findIndex(c => c.id === id);
