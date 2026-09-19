@@ -117,34 +117,39 @@ export const ProjectsPage: React.FC = () => {
       return;
     }
 
-    if (editingProject) {
-      await db.updateProject(editingProject.id, {
-        name,
-        description,
-        client_id: clientId,
-        status,
-        start_date: startDate,
-        deadline,
-        budget: Number(budget),
-        progress: Number(progress),
-      });
-    } else {
-      await db.createProject({
-        freelancer_id: user.id,
-        client_id: clientId,
-        name,
-        description,
-        status,
-        start_date: startDate,
-        deadline,
-        budget: Number(budget),
-        progress: Number(progress),
-        currency: 'USD',
-      });
-    }
+    try {
+      if (editingProject) {
+        await db.updateProject(editingProject.id, {
+          name,
+          description,
+          client_id: clientId,
+          status,
+          start_date: startDate,
+          deadline,
+          budget: Number(budget),
+          progress: Number(progress),
+        });
+      } else {
+        await db.createProject({
+          freelancer_id: user.id,
+          client_id: clientId,
+          name,
+          description,
+          status,
+          start_date: startDate,
+          deadline,
+          budget: Number(budget),
+          progress: Number(progress),
+          currency: 'USD',
+        });
+      }
 
-    setIsModalOpen(false);
-    fetchProjects();
+      setIsModalOpen(false);
+      fetchProjects();
+    } catch (err: unknown) {
+      console.error('Error saving project:', err);
+      setFormError(err instanceof Error ? err.message : 'Failed to save project');
+    }
   };
 
   const filteredProjects = projects.filter((p) => {

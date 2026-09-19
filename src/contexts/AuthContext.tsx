@@ -32,12 +32,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (isSupabaseLive && supabase) {
           const { data: { session } } = await supabase.auth.getSession();
           if (session?.user) {
-            const profile = await db.getProfileById(session.user.id);
-            if (profile) {
-              setUser(profile);
-              setLoading(false);
-              return;
+            let profile = await db.getProfileById(session.user.id);
+            if (!profile) {
+              profile = {
+                id: session.user.id,
+                email: session.user.email || '',
+                full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Freelancer',
+                role: (session.user.user_metadata?.role as UserRole) || 'freelancer',
+                company_name: session.user.user_metadata?.company_name || 'Freelance Studio',
+                currency: 'USD',
+                created_at: session.user.created_at || new Date().toISOString(),
+              };
             }
+            setUser(profile);
+            localStorage.setItem('freelanceflow_active_user_id', profile.id);
+            setLoading(false);
+            return;
           }
         }
 
@@ -77,11 +87,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             window.dispatchEvent(new PopStateEvent('popstate'));
           }
         } else if (session?.user) {
-          const profile = await db.getProfileById(session.user.id);
-          if (profile) {
-            setUser(profile);
-            localStorage.setItem('freelanceflow_active_user_id', profile.id);
+          let profile = await db.getProfileById(session.user.id);
+          if (!profile) {
+            profile = {
+              id: session.user.id,
+              email: session.user.email || '',
+              full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Freelancer',
+              role: (session.user.user_metadata?.role as UserRole) || 'freelancer',
+              company_name: session.user.user_metadata?.company_name || 'Freelance Studio',
+              currency: 'USD',
+              created_at: session.user.created_at || new Date().toISOString(),
+            };
           }
+          setUser(profile);
+          localStorage.setItem('freelanceflow_active_user_id', profile.id);
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
           localStorage.removeItem('freelanceflow_active_user_id');
@@ -100,12 +119,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) return { success: false, error: error.message };
         if (data.user) {
-          const profile = await db.getProfileById(data.user.id);
-          if (profile) {
-            setUser(profile);
-            localStorage.setItem('freelanceflow_active_user_id', profile.id);
-            return { success: true };
+          let profile = await db.getProfileById(data.user.id);
+          if (!profile) {
+            profile = {
+              id: data.user.id,
+              email: data.user.email || '',
+              full_name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'Freelancer',
+              role: (data.user.user_metadata?.role as UserRole) || 'freelancer',
+              company_name: data.user.user_metadata?.company_name || 'Freelance Studio',
+              currency: 'USD',
+              created_at: data.user.created_at || new Date().toISOString(),
+            };
           }
+          setUser(profile);
+          localStorage.setItem('freelanceflow_active_user_id', profile.id);
+          return { success: true };
         }
       }
 
