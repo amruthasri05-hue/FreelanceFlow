@@ -103,18 +103,14 @@ class AppDatabase {
   async createClient(client: Omit<Client, 'id' | 'created_at' | 'is_archived'>): Promise<Client> {
     if (isSupabaseConfigured() && supabase) {
       let freelancerId = client.freelancer_id;
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user?.id) {
-          freelancerId = session.user.id;
-        } else {
-          const { data: { user: authUser } } = await supabase.auth.getUser();
-          if (authUser?.id) {
-            freelancerId = authUser.id;
-          }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.id) {
+        freelancerId = session.user.id;
+      } else {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser?.id) {
+          freelancerId = authUser.id;
         }
-      } catch (authErr) {
-        console.warn('Could not retrieve Supabase auth session for client creation:', authErr);
       }
 
       const insertPayload = {
@@ -207,23 +203,19 @@ class AppDatabase {
   async createProject(project: Omit<Project, 'id' | 'created_at' | 'is_archived'>): Promise<Project> {
     if (isSupabaseConfigured() && supabase) {
       let freelancerId = project.freelancer_id;
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user?.id) {
-          freelancerId = session.user.id;
-        } else {
-          const { data: { user: authUser } } = await supabase.auth.getUser();
-          if (authUser?.id) {
-            freelancerId = authUser.id;
-          }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.id) {
+        freelancerId = session.user.id;
+      } else {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser?.id) {
+          freelancerId = authUser.id;
         }
-      } catch (authErr) {
-        console.warn('Could not retrieve Supabase auth session for project creation:', authErr);
       }
 
       const insertPayload = {
         freelancer_id: freelancerId,
-        client_id: project.client_id || null,
+        client_id: project.client_id && project.client_id.trim() !== '' ? project.client_id : null,
         name: project.name,
         description: project.description || null,
         status: project.status || 'active',

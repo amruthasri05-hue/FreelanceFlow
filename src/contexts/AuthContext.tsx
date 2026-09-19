@@ -30,7 +30,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     async function initSession() {
       try {
         if (isSupabaseLive && supabase) {
-          const { data: { session } } = await supabase.auth.getSession();
+          const { data: { session }, error } = await supabase.auth.getSession();
+          if (error) {
+            console.warn('Supabase getSession error:', error);
+          }
           if (session?.user) {
             let profile = await db.getProfileById(session.user.id);
             if (!profile) {
@@ -48,10 +51,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             localStorage.setItem('freelanceflow_active_user_id', profile.id);
             setLoading(false);
             return;
+          } else {
+            // Live Supabase is configured: strictly require an authenticated Supabase session
+            setUser(null);
+            localStorage.removeItem('freelanceflow_active_user_id');
+            setLoading(false);
+            return;
           }
         }
 
-        // Restore local simulated session if present
+        // Restore local simulated session ONLY when live Supabase is not configured (demo mode)
         const savedUserId = localStorage.getItem('freelanceflow_active_user_id');
         if (savedUserId) {
           const profile = await db.getProfileById(savedUserId);
@@ -101,7 +110,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           setUser(profile);
           localStorage.setItem('freelanceflow_active_user_id', profile.id);
-        } else if (event === 'SIGNED_OUT') {
+        } else if (event === 'SIGNED_OUT' || !session) {
           setUser(null);
           localStorage.removeItem('freelanceflow_active_user_id');
         }
@@ -115,7 +124,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password?: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      if (isSupabaseLive && supabase && password) {
+      if (isSupabaseLive && supabase) {
+        if (!password) {
+          return { success: false, error: 'Password is required to sign in to Supabase.' };
+        }
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) return { success: false, error: error.message };
         if (data.user) {
@@ -135,9 +147,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.setItem('freelanceflow_active_user_id', profile.id);
           return { success: true };
         }
+        return { success: false, error: 'Failed to authenticate user session.' };
       }
 
-      // Match demo profiles
+      // Match demo profiles (demo mode only)
       const profiles = await db.getProfiles();
       const matched = profiles.find(p => p.email.toLowerCase() === email.toLowerCase());
       if (matched) {
@@ -174,7 +187,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     companyName?: string;
   }): Promise<{ success: boolean; error?: string }> => {
     try {
-      if (isSupabaseLive && supabase && data.password) {
+      if (isSupabaseLive && supabase) {
+        if (!data.password) {
+          return { success: false, error: 'Password is required to create a Supabase account.' };
+        }
         const { data: authData, error } = await supabase.auth.signUp({
           email: data.email,
           password: data.password,
@@ -202,6 +218,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.setItem('freelanceflow_active_user_id', newProfile.id);
           return { success: true };
         }
+        return { success: false, error: 'Sign up failed to return user.' };
       }
 
       const newProfile: Profile = {
