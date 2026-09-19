@@ -188,16 +188,36 @@ class AppDatabase {
   }
 
   async createProject(project: Omit<Project, 'id' | 'created_at' | 'is_archived'>): Promise<Project> {
+    if (isSupabaseConfigured() && supabase) {
+      const insertPayload = {
+        freelancer_id: project.freelancer_id,
+        client_id: project.client_id || null,
+        name: project.name,
+        description: project.description || null,
+        status: project.status || 'active',
+        start_date: project.start_date && project.start_date.trim() !== '' ? project.start_date : null,
+        deadline: project.deadline && project.deadline.trim() !== '' ? project.deadline : null,
+        budget: project.budget !== undefined ? Number(project.budget) : 0,
+        progress: project.progress !== undefined ? Number(project.progress) : 0,
+        currency: project.currency || 'USD',
+        is_archived: false,
+      };
+      const { data, error } = await supabase.from('projects').insert(insertPayload).select('*, client:clients(*)').single();
+      if (error) {
+        console.error('Error creating project in Supabase:', error);
+      } else if (data) {
+        await this.logActivity(project.freelancer_id, data.id, 'created', 'project', data.id, { name: data.name });
+        return data as Project;
+      }
+    }
     const newProject: Project = {
       ...project,
       id: 'prj-' + Date.now(),
+      start_date: project.start_date && project.start_date.trim() !== '' ? project.start_date : undefined,
+      deadline: project.deadline && project.deadline.trim() !== '' ? project.deadline : undefined,
       is_archived: false,
       created_at: new Date().toISOString(),
     };
-    if (isSupabaseConfigured() && supabase) {
-      const { data, error } = await supabase.from('projects').insert(newProject).select().single();
-      if (!error && data) return data as Project;
-    }
     this.projects.unshift(newProject);
     this.persist('projects', this.projects);
     await this.logActivity(project.freelancer_id, newProject.id, 'created', 'project', newProject.id, { name: newProject.name });
@@ -214,7 +234,15 @@ class AppDatabase {
 
   async updateProject(id: string, updates: Partial<Project>): Promise<Project> {
     if (isSupabaseConfigured() && supabase) {
-      const { data, error } = await supabase.from('projects').update(updates).eq('id', id).select().single();
+      const { client, id: _id, created_at: _cat, ...cleanUpdates } = updates;
+      const updatePayload: Record<string, any> = { ...cleanUpdates };
+      if ('start_date' in updatePayload) {
+        updatePayload.start_date = updatePayload.start_date && typeof updatePayload.start_date === 'string' && updatePayload.start_date.trim() !== '' ? updatePayload.start_date : null;
+      }
+      if ('deadline' in updatePayload) {
+        updatePayload.deadline = updatePayload.deadline && typeof updatePayload.deadline === 'string' && updatePayload.deadline.trim() !== '' ? updatePayload.deadline : null;
+      }
+      const { data, error } = await supabase.from('projects').update(updatePayload).eq('id', id).select('*, client:clients(*)').single();
       if (!error && data) return data as Project;
     }
     const idx = this.projects.findIndex(p => p.id === id);
