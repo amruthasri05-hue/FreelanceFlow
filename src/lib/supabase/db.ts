@@ -211,17 +211,12 @@ class AppDatabase {
       throw new Error('Supabase client is not configured.');
     }
 
-    // 2. Before inserting, obtain the CURRENT authenticated Supabase user using: await supabase.auth.getUser()
+    // Verify active authenticated user session
     const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-
-    // 3. If there is no authenticated user, throw a clear authentication error and do NOT attempt the INSERT.
     if (authError || !authUser) {
       throw new Error(authError?.message || 'Authentication error: No authenticated Supabase user session found. Please log in.');
     }
 
-    // 4. Set freelancer_id = authenticatedUser.id
-    // 5. Build the INSERT payload explicitly using ONLY these project columns:
-    // - freelancer_id, client_id, name, description, status, start_date, deadline, budget, progress, currency, is_archived
     const payload = {
       freelancer_id: authUser.id,
       client_id: project.client_id ? project.client_id : null,
@@ -236,7 +231,7 @@ class AppDatabase {
       is_archived: false,
     };
 
-    // Temporary diagnostic: perform raw insert without select()
+    // Direct Supabase INSERT
     const { error } = await supabase
       .from('projects')
       .insert(payload);
@@ -246,7 +241,6 @@ class AppDatabase {
       throw error;
     }
 
-    // Diagnostic return (no SELECT from DB)
     return {
       id: '',
       ...payload,

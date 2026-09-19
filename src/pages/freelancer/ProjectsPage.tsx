@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from '../../contexts/RouterContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase/client';
 import { db } from '../../lib/supabase/db';
 import { Project, Client, ProjectStatus } from '../../types';
 import { projectSchema } from '../../lib/validations';
@@ -59,26 +58,6 @@ export const ProjectsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    async function runDiagnostic() {
-      if (supabase) {
-        try {
-          const { data: authData, error: authError } = await supabase.rpc('debug_auth');
-          console.log('DEBUG AUTH IDENTITY:', authData, authError);
-
-          const { data: userData } = await supabase.auth.getUser();
-          const targetId = userData?.user?.id || user?.id;
-          if (targetId) {
-            const { data: rlsData, error: rlsError } = await supabase.rpc('debug_project_rls', {
-              target_freelancer_id: targetId,
-            });
-            console.log('DEBUG PROJECT RLS:', rlsData, rlsError);
-          }
-        } catch (err) {
-          console.error('DEBUG RPC ERROR:', err);
-        }
-      }
-    }
-    runDiagnostic();
     fetchProjects();
   }, [user]);
 
