@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from '../../contexts/RouterContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase/client';
 import { db } from '../../lib/supabase/db';
 import { Project, Client, ProjectStatus } from '../../types';
 import { projectSchema } from '../../lib/validations';
@@ -58,6 +59,17 @@ export const ProjectsPage: React.FC = () => {
   };
 
   useEffect(() => {
+    async function runDiagnostic() {
+      if (supabase) {
+        try {
+          const { data, error } = await supabase.rpc('debug_auth');
+          console.log('DEBUG AUTH IDENTITY:', data, error);
+        } catch (err) {
+          console.error('DEBUG AUTH IDENTITY:', null, err);
+        }
+      }
+    }
+    runDiagnostic();
     fetchProjects();
   }, [user]);
 
