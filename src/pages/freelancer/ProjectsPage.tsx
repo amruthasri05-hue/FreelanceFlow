@@ -40,6 +40,7 @@ export const ProjectsPage: React.FC = () => {
   const [budget, setBudget] = useState(10000);
   const [progress, setProgress] = useState(0);
   const [formError, setFormError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchProjects = async () => {
     if (!user) return;
@@ -97,7 +98,7 @@ export const ProjectsPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || isSubmitting) return;
     setFormError(null);
 
     const validation = projectSchema.safeParse({
@@ -109,7 +110,7 @@ export const ProjectsPage: React.FC = () => {
       deadline,
       budget: Number(budget),
       progress: Number(progress),
-      currency: 'USD',
+      currency: 'INR',
     });
 
     if (!validation.success) {
@@ -117,38 +118,53 @@ export const ProjectsPage: React.FC = () => {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       if (editingProject) {
         await db.updateProject(editingProject.id, {
           name,
-          description,
-          client_id: clientId,
+          description: description || undefined,
+          client_id: clientId || undefined,
           status,
-          start_date: startDate,
-          deadline,
+          start_date: startDate || undefined,
+          deadline: deadline || undefined,
           budget: Number(budget),
           progress: Number(progress),
         });
       } else {
         await db.createProject({
-          freelancer_id: user.id,
-          client_id: clientId,
+          client_id: clientId ? clientId : null,
           name,
-          description,
+          description: description ? description : null,
           status,
-          start_date: startDate,
-          deadline,
+          start_date: startDate ? startDate : null,
+          deadline: deadline ? deadline : null,
           budget: Number(budget),
           progress: Number(progress),
-          currency: 'USD',
+          currency: 'INR',
         });
       }
 
       setIsModalOpen(false);
-      fetchProjects();
+      await fetchProjects();
     } catch (err: unknown) {
       console.error('Error saving project:', err);
-      setFormError(err instanceof Error ? err.message : 'Failed to save project');
+      let errorMsg = 'Failed to save project';
+      if (err && typeof err === 'object') {
+        const errorObj = err as Record<string, unknown>;
+        if (typeof errorObj.message === 'string' && errorObj.message) {
+          errorMsg = errorObj.message;
+        } else if (typeof errorObj.details === 'string' && errorObj.details) {
+          errorMsg = errorObj.details;
+        } else if (typeof errorObj.hint === 'string' && errorObj.hint) {
+          errorMsg = `${errorObj.message || 'Database error'}: ${errorObj.hint}`;
+        }
+      } else if (err instanceof Error) {
+        errorMsg = err.message;
+      }
+      setFormError(errorMsg);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -433,11 +449,12 @@ export const ProjectsPage: React.FC = () => {
             <Button
               type="button"
               variant="outline"
+              disabled={isSubmitting}
               onClick={() => setIsModalOpen(false)}
             >
               Cancel
             </Button>
-            <Button type="submit" variant="primary">
+            <Button type="submit" variant="primary" loading={isSubmitting} disabled={isSubmitting}>
               {editingProject ? 'Save Changes' : 'Create Project'}
             </Button>
           </div>

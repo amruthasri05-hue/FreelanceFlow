@@ -26,13 +26,13 @@ export const clientSchema = z.object({
 export const projectSchema = z.object({
   name: z.string().min(2, 'Project name is required'),
   description: z.string().optional(),
-  client_id: z.string().min(1, 'Please select a client'),
+  client_id: z.string().optional(),
   status: z.enum(['planning', 'active', 'on_hold', 'completed', 'archived']),
   start_date: z.string().optional(),
   deadline: z.string().optional(),
   budget: z.number().min(0, 'Budget must be a positive number'),
   progress: z.number().min(0).max(100).default(0),
-  currency: z.string().default('USD'),
+  currency: z.string().default('INR'),
 });
 
 export const taskSchema = z.object({

@@ -1,6 +1,6 @@
 import { supabase, isSupabaseConfigured } from './client';
 import {
-  Profile, Client, Project, Milestone, Task, TimeEntry,
+  Profile, Client, Project, ProjectStatus, Milestone, Task, TimeEntry,
   ProjectFile, Conversation, Message, Proposal, Contract,
   Invoice, Payment, Notification, ActivityLog, DashboardStats
 } from '../../types';
@@ -195,57 +195,61 @@ class AppDatabase {
     return list.find(p => p.id === id) || null;
   }
 
-  async createProject(project: Omit<Project, 'id' | 'created_at' | 'is_archived'>): Promise<Project> {
-    if (isSupabaseConfigured() && supabase) {
-      const { data: { session } } = await supabase.auth.getSession();
-      const authUserId = session?.user?.id;
-      if (!authUserId) {
-        throw new Error('Authentication required: an active Supabase session is required to create a project.');
-      }
-
-      const insertPayload = {
-        freelancer_id: authUserId,
-        client_id: project.client_id && project.client_id.trim() !== '' ? project.client_id : null,
-        name: project.name,
-        description: project.description || null,
-        status: project.status || 'active',
-        start_date: project.start_date && project.start_date.trim() !== '' ? project.start_date : null,
-        deadline: project.deadline && project.deadline.trim() !== '' ? project.deadline : null,
-        budget: project.budget !== undefined ? Number(project.budget) : 0,
-        progress: project.progress !== undefined ? Number(project.progress) : 0,
-        currency: project.currency || 'USD',
-        is_archived: false,
-      };
-      const { data, error } = await supabase.from('projects').insert(insertPayload).select('*, client:clients(*)').single();
-      if (error) {
-        console.error('Error creating project in Supabase:', error);
-        throw error;
-      }
-      if (data) {
-        await this.logActivity(authUserId, data.id, 'created', 'project', data.id, { name: data.name });
-        return data as Project;
-      }
+  async createProject(project: {
+    client_id?: string | null;
+    name: string;
+    description?: string | null;
+    status?: ProjectStatus;
+    start_date?: string | null;
+    deadline?: string | null;
+    budget?: number | null;
+    progress?: number;
+    currency?: string | null;
+    freelancer_id?: string;
+  }): Promise<Project> {
+    if (!isSupabaseConfigured() || !supabase) {
+      throw new Error('Supabase client is not configured.');
     }
-    const newProject: Project = {
-      ...project,
-      id: 'prj-' + Date.now(),
-      start_date: project.start_date && project.start_date.trim() !== '' ? project.start_date : undefined,
-      deadline: project.deadline && project.deadline.trim() !== '' ? project.deadline : undefined,
-      is_archived: false,
-      created_at: new Date().toISOString(),
-    };
-    this.projects.unshift(newProject);
-    this.persist('projects', this.projects);
-    await this.logActivity(project.freelancer_id, newProject.id, 'created', 'project', newProject.id, { name: newProject.name });
-    
-    // Auto-create initial project discussion conversation
-    await this.createConversation({
-      project_id: newProject.id,
-      title: `${newProject.name} — Workspace`,
-      is_group: true,
-    });
 
-    return newProject;
+    // 2. Before inserting, obtain the CURRENT authenticated Supabase user using: await supabase.auth.getUser()
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+
+    // 3. If there is no authenticated user, throw a clear authentication error and do NOT attempt the INSERT.
+    if (authError || !authUser) {
+      throw new Error(authError?.message || 'Authentication error: No authenticated Supabase user session found. Please log in.');
+    }
+
+    // 4. Set freelancer_id = authenticatedUser.id
+    // 5. Build the INSERT payload explicitly using ONLY these project columns:
+    // - freelancer_id, client_id, name, description, status, start_date, deadline, budget, progress, currency, is_archived
+    const payload = {
+      freelancer_id: authUser.id,
+      client_id: project.client_id ? project.client_id : null,
+      name: project.name,
+      description: project.description ? project.description : null,
+      status: project.status || 'active',
+      start_date: project.start_date ? project.start_date : null,
+      deadline: project.deadline ? project.deadline : null,
+      budget: project.budget !== undefined && project.budget !== null ? Number(project.budget) : 0,
+      progress: project.progress !== undefined && project.progress !== null ? Number(project.progress) : 0,
+      currency: project.currency || 'INR',
+      is_archived: false,
+    };
+
+    // 10. Perform supabase.from('projects').insert(payload).select().single()
+    const { data, error } = await supabase
+      .from('projects')
+      .insert(payload)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Supabase error creating project:', error);
+      throw error;
+    }
+
+    // 11. Return the created project.
+    return data as Project;
   }
 
   async updateProject(id: string, updates: Partial<Project>): Promise<Project> {
