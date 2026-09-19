@@ -236,20 +236,22 @@ class AppDatabase {
       is_archived: false,
     };
 
-    // 10. Perform supabase.from('projects').insert(payload).select().single()
-    const { data, error } = await supabase
+    // Temporary diagnostic: perform raw insert without select()
+    const { error } = await supabase
       .from('projects')
-      .insert(payload)
-      .select()
-      .single();
+      .insert(payload);
 
     if (error) {
       console.error('Supabase error creating project:', error);
       throw error;
     }
 
-    // 11. Return the created project.
-    return data as Project;
+    // Diagnostic return (no SELECT from DB)
+    return {
+      id: '',
+      ...payload,
+      created_at: new Date().toISOString(),
+    } as unknown as Project;
   }
 
   async updateProject(id: string, updates: Partial<Project>): Promise<Project> {
