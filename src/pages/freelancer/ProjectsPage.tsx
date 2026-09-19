@@ -62,10 +62,19 @@ export const ProjectsPage: React.FC = () => {
     async function runDiagnostic() {
       if (supabase) {
         try {
-          const { data, error } = await supabase.rpc('debug_auth');
-          console.log('DEBUG AUTH IDENTITY:', data, error);
+          const { data: authData, error: authError } = await supabase.rpc('debug_auth');
+          console.log('DEBUG AUTH IDENTITY:', authData, authError);
+
+          const { data: userData } = await supabase.auth.getUser();
+          const targetId = userData?.user?.id || user?.id;
+          if (targetId) {
+            const { data: rlsData, error: rlsError } = await supabase.rpc('debug_project_rls', {
+              target_freelancer_id: targetId,
+            });
+            console.log('DEBUG PROJECT RLS:', rlsData, rlsError);
+          }
         } catch (err) {
-          console.error('DEBUG AUTH IDENTITY:', null, err);
+          console.error('DEBUG RPC ERROR:', err);
         }
       }
     }
